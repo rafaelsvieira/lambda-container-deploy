@@ -1,0 +1,104 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: |
+  Creates a stack containing an IAM role used to grant access to a repository create resources.
+
+Parameters:
+  Repository:
+    Type: String
+    Description: |
+      Repository name with organization. For example, rafaelsvieira/labs-eks-foundation.
+  RoleName:
+    Type: String
+    Description: |
+      Role name
+
+Resources:
+  FoundationRepoRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${RoleName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action:
+              - sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: "sts.amazonaws.com"
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repository}:*"
+
+      Policies:
+        - PolicyName: "workflow-permission"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:UpdateAlias"
+                  - "lambda:GetAlias"
+                  - "lambda:GetProvisionedConcurrencyConfig"
+                  - "lambda:PutProvisionedConcurrencyConfig"
+                  - "lambda:DeleteProvisionedConcurrencyConfig"
+                  - "lambda:InvokeFunction"
+                  - "lambda:AddPermission"
+                  - "lambda:CreateFunction"
+                  - "lambda:GetFunction"
+                  - "lambda:UpdateFunctionConfiguration"
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - "cloudwatch:PutMetricAlarm"
+                  - "cloudwatch:DescribeAlarms"
+                  - "cloudwatch:DeleteAlarms"
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - "codedeploy:Batch*"
+                  - "codedeploy:CreateDeployment"
+                  - "codedeploy:Get*"
+                  - "codedeploy:List*"
+                  - "codedeploy:RegisterApplicationRevision"
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - "ecr:CreateRepository"
+                  - "ecr:ReplicateImage"
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchGetImage"
+                  - "ecr:InitiateLayerUpload"
+                  - "ecr:UploadLayerPart"
+                  - "ecr:CompleteLayerUpload"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:PutImage"
+                Resource: "*"
+
+              - Effect: Allow
+                Action:
+                  - "iam:CreatePolicy"
+                  - "iam:UpdateRoleDescription"
+                  - "iam:DeletePolicy"
+                  - "iam:CreateRole"
+                  - "iam:DeleteRole"
+                  - "iam:UpdateRole"
+                  - "iam:PutRolePolicy"
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:policy/*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
+Outputs:
+  RoleId:
+    Description: The logical ID of the IAM role
+    Value: !Ref FoundationRepoRole
+  RoleArn:
+    Description: The ARN of the IAM role
+    Value: !GetAtt [FoundationRepoRole, Arn]
