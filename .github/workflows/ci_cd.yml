@@ -1,0 +1,70 @@
+on:
+  push:
+    branches:
+    - 'main'
+    paths:
+    - 'infra/**'
+    - 'app/**'
+    - '.github/workflows/deploy.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: lambda-container
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    outputs:
+      image-uri: ${{ steps.image.outputs.uri }}
+    defaults:
+      run:
+        working-directory: ./app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            app:
+              - 'app/**'
+
+      - name: Configure AWS credentials
+        if: steps.changes.outputs.app == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/repo-lambda-container-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: steps.changes.outputs.app == 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        if: steps.changes.outputs.app == 'true'
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_URI="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "::group::Docker build"
+          docker build -t ${IMAGE_URI} .
+          echo "::endgroup::"
+          echo "::group::Docker push"
+          docker push ${IMAGE_URI}
+          echo "::endgroup::"
+
+          echo "::notice:: A new image has been published"
+
+      - name: Set output
+        id: image
+        run: |
+          echo "uri=${{ env.IMAGE_URI }}" >> $GITHUB_OUTPUT
+          cho "::notice:: Image URI: ${{ env.IMAGE_URI }}"
