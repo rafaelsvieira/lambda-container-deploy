@@ -47,6 +47,7 @@ jobs:
 
       - name: Build, tag, and push docker image to Amazon ECR
         if: steps.changes.outputs.app == 'true'
+        id: image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ env.ECR_REPOSITORY }}
@@ -62,9 +63,75 @@ jobs:
           echo "::endgroup::"
 
           echo "::notice:: A new image has been published"
+          echo "uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
 
-      - name: Set output
-        id: image
+  CD:
+    runs-on: ubuntu-latest
+    needs:
+      - CI
+    defaults:
+      run:
+        working-directory: ./infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get CI image URI
+        if: needs.CI.outputs.image-uri != ''
         run: |
-          echo "uri=${{ env.IMAGE_URI }}" >> $GITHUB_OUTPUT
-          cho "::notice:: Image URI: ${{ env.IMAGE_URI }}"
+          echo "IMAGE_URI=${{ needs.CI.outputs.image-uri }}" >> $GITHUB_ENV
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/repo-lambda-container-deploy
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      # - name: Login to Amazon ECR
+      #   if: steps.changes.outputs.app == 'true'
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install AWS CLI and jq
+        if: needs.CI.outputs.image-uri == ''
+        run: |
+          echo "::group::Install jq"
+          sudo apt-get install jq
+          echo "::endgroup::"
+
+          jq --version
+          aws --version
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate -no-color
+
+      - name: Terraform Plan
+        run: terraform plan -no-color -var="image_uri=test" -out plan.out
+
+      - name: Get current image URI
+        if: needs.CI.outputs.image-uri == ''
+        run: |
+          echo "::group::Show plan"
+          terraform show -json plan.out | jq
+          echo "::endgroup::"
+
+          ALIAS_NAME=$(terraform show -json plan.out | jq -r values.planned_values.outputs.lambda_alias_name.value)
+          FUNCTION_NAME=$(terraform show -json plan.out | jq -r values.planned_values.outputs.lambda_function_name.value)
+
+          aws lambda get-alias --function-name ${FUNCTION_NAME} --name ${ALIAS_NAME} || echo "Not Found"
+
+      - name: Terraform Apply
+        run: terraform apply -no-color -auto-approve -var="image_uri=${{ env.IMAGE_URI }}"
+
+      - name: Show URL
+        run: |
+          CODEDEPLOY_APP_NAME=$(terraform show -json | jq -r values.values.outputs.codedeploy_app_name.value)
+          echo "::notice::"https://${AWS_REGION}.console.aws.amazon.com/codesuite/codedeploy/applications/${CODEDEPLOY_APP_NAME}/deployments?region=${AWS_REGION}"
