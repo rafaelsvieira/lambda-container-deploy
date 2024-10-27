@@ -92,6 +92,12 @@ Resources:
                   - "cloudwatch:PutMetricAlarm"
                   - "cloudwatch:DescribeAlarms"
                   - "cloudwatch:DeleteAlarms"
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:TagResource"
+                  - "logs:DescribeLogGroups"
+                  - "logs:ListTagsForResource"
                 Resource: "*"
 
               - Effect: Allow
@@ -105,15 +111,16 @@ Resources:
 
               - Effect: Allow
                 Action:
+                  - "ecr:Get*"
                   - "ecr:CreateRepository"
                   - "ecr:ReplicateImage"
-                  - "ecr:GetAuthorizationToken"
+                  - "ecr:DescribeRepositories"
+                  - "ecr:ListTagsForResource"
                   - "ecr:BatchGetImage"
                   - "ecr:InitiateLayerUpload"
                   - "ecr:UploadLayerPart"
                   - "ecr:CompleteLayerUpload"
                   - "ecr:BatchCheckLayerAvailability"
-                  - "ecr:GetDownloadUrlForLayer"
                   - "ecr:PutImage"
                 Resource: "*"
 
@@ -126,6 +133,14 @@ Resources:
                   - "iam:DeleteRole"
                   - "iam:UpdateRole"
                   - "iam:PutRolePolicy"
+                  - "iam:TagRole"
+                  - "iam:GetRole"
+                  - "iam:ListRolePolicies"
+                  - "iam:ListAttachedRolePolicies"
+                  - "iam:TagPolicy"
+                  - "iam:GetPolicy"
+                  - "iam:GetPolicyVersion"
+                  - "iam:AttachRolePolicy"
                 Resource:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:policy/*"
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
