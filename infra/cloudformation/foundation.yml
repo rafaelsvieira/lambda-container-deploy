@@ -11,10 +11,44 @@ Parameters:
       Repository name with organization. For example, rafaelsvieira/labs-eks-foundation.
   RoleName:
     Type: String
-    Description: |
-      Role name
+    Description: Role name
+  BucketName:
+    Type: String
+    Description: Bucket name
 
 Resources:
+  S3Bucket:
+    DeletionPolicy: Retain
+    Type: "AWS::S3::Bucket"
+    Description: Creating Amazon S3 bucket from CloudFormation
+    Properties:
+      BucketName: !Ref BucketName
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action: s3:*
+            Principal:
+              AWS: !Sub "${FoundationRepoRole.Arn}"
+            Resource: !Sub "${S3Bucket.Arn}/*"
+
   FoundationRepoRole:
     Type: AWS::IAM::Role
     Properties:
@@ -95,6 +129,7 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:iam::${AWS::AccountId}:policy/*"
                   - !Sub "arn:aws:iam::${AWS::AccountId}:role/*"
+
 Outputs:
   RoleId:
     Description: The logical ID of the IAM role
@@ -102,3 +137,6 @@ Outputs:
   RoleArn:
     Description: The ARN of the IAM role
     Value: !GetAtt [FoundationRepoRole, Arn]
+  S3Bucket:
+    Description: Bucket Created using this template.
+    Value: !Ref S3Bucket

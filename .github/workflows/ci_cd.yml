@@ -1,11 +1,11 @@
 on:
   push:
     branches:
-    - 'main'
+      - "main"
     paths:
-    - 'infra/**'
-    - 'app/**'
-    - '.github/workflows/deploy.yml'
+      - "infra/**"
+      - "app/**"
+      - ".github/workflows/deploy.yml"
 
 permissions:
   id-token: write
