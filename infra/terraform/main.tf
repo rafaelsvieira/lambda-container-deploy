@@ -44,13 +44,13 @@ module "lambda_function" {
   source  = "terraform-aws-modules/lambda/aws"
   version = "~> 7.14.0"
 
-  function_name  = var.lambda_name
-  description    = "Version ${local.app_version}"
-  publish        = true
-  create_package = false
-  image_uri      = var.image_uri
-  package_type   = "Image"
-  architectures  = ["x86_64"]
+  function_name = var.lambda_name
+  description   = "Version ${local.app_version}"
+  publish       = true
+  #   create_package = false
+  image_uri     = var.image_uri
+  package_type  = "Image"
+  architectures = ["x86_64"]
 
   environment_variables = {
     APP_VERSION = local.app_version

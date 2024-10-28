@@ -122,6 +122,7 @@ Resources:
                   - "ecr:CompleteLayerUpload"
                   - "ecr:BatchCheckLayerAvailability"
                   - "ecr:PutImage"
+                  - "ecr:SetRepositoryPolicy"
                 Resource: "*"
 
               - Effect: Allow
